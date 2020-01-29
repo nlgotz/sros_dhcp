@@ -1,0 +1,4 @@
+*.bak
+bad_interfaces.csv
+host_vars/
+mpls

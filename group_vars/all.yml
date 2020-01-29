@@ -1,0 +1,10 @@
+---
+cli:
+  host: "{{ inventory_hostname }}"
+  username: nokia
+  password: alcatel-lucent
+
+vprn: 1
+current_dhcp_servers: "10.1.1.1 10.2.2.2"
+future_dhcp_servers: "10.1.1.2 10.2.2.3"
+

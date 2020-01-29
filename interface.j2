@@ -1,0 +1,8 @@
+---
+# YML file for {{ inventory_hostname }}
+
+
+interfaces:
+{% for interface in matched_dhcp_interfaces %}
+    - id: {{ interface }}
+{% endfor %}

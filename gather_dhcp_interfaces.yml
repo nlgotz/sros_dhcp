@@ -1,0 +1,87 @@
+---
+- name: Get DHCP Interfaces
+  connection: local
+  hosts: all
+  vars:
+    possible_dhcp_interfaces: []
+    matched_dhcp_interfaces: []
+    unmatched_dhcp_interfaces: []
+    unmatched_interfaces_output: bad_interfaces.csv
+
+  tasks:
+    - name: FILE | Create Host Vars Directory
+      file:
+        path: host_vars
+        state: directory
+
+    - name: FILE | Create Unmatched Interface CSV
+      lineinfile:
+        path: "{{ unmatched_interfaces_output }}"
+        line: "hostname,interface,servers"
+        create: yes
+
+    - name: SROS | Show DHCP Interfaces 
+      sros_command:
+        commands: "show router {{ vprn }} dhcp summary"
+        provider: "{{cli}}"
+      register: dhcp_summary
+
+    - name: DEBUG | Print DHCP Interfaces
+      debug:
+        msg:
+        - "{{ dhcp_summary }}"
+
+    - name: FACT | Find Interfaces that have DHCP running on them
+      set_fact:
+        possible_dhcp_interfaces: "{{ possible_dhcp_interfaces|default([]) + [item |
+        regex_replace('^(.*?)(No).*(Up)$', '\\1') | trim] }}"
+      with_items: "{{ dhcp_summary.stdout_lines }}"
+      when: item is regex("^.*(Up)$") 
+
+    - name: DEBUG | Print List of Possible DHCP Interfaces
+      debug:
+        msg:
+          - "{{ possible_dhcp_interfaces }}"
+
+    - name: SROS | Verify that DHCP Interfaces are using the old DHCP Servers
+      sros_command:
+        commands: 'show router {{ vprn }} interface "{{ item }}" detail | match Servers'
+        provider: "{{cli}}"
+      with_items: "{{ possible_dhcp_interfaces }}"
+      register: dhcp_server_result
+
+    - name: DEBUG | Print Server Results
+      debug:
+        msg:
+          - "{{ dhcp_server_result.results[0].stdout[0] }}"
+
+    - name: FACT | Find DHCP Servers that match defined DHCP Servers
+      set_fact:
+        matched_dhcp_interfaces: "{{ matched_dhcp_interfaces + [item.item] }}"
+      with_items: "{{ dhcp_server_result.results }}"
+      when: "item.stdout[0].find('' ~ current_dhcp_servers) != -1"
+
+    - name: DEBUG | Print Matched DHCP Interfaces
+      debug:
+        msg:
+          - "{{ matched_dhcp_interfaces }}"
+
+    - name: FACT | Find DHCP Servers that do NOT match defined DHCP Servers
+      set_fact:
+        unmatched_dhcp_interfaces: "{{ unmatched_dhcp_interfaces + [ item ] }}"
+      with_items: "{{ dhcp_server_result.results }}"
+      when: "item.stdout[0].find('' ~ current_dhcp_servers) == -1"
+
+    - name: DEBUG | Print Unmatched DHCP Interfaces
+      debug:
+        msg:
+          - "{{ unmatched_dhcp_interfaces }}"
+
+    - name: TEMPLATE | Create Host VAR file for DHCP Interfaces
+      template: src=interface.j2 dest=host_vars/{{ inventory_hostname }}.yml
+
+    - name: FILE | Add Host/Interfaces to Non-conformant DHCP Interface file
+      lineinfile:
+        path: "{{ unmatched_interfaces_output }}"
+        line: "{{ inventory_hostname }},{{ item.item }},{{ item.stdout[0] | regex_replace('^.*(: )(.*)$', '\\2') }}"
+      with_items: "{{ unmatched_dhcp_interfaces }}"

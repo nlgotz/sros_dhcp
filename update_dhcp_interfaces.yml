@@ -1,0 +1,18 @@
+---
+- name: Get DHCP Interfaces
+  connection: local
+  hosts: all
+
+  tasks:
+    - name: SROS | Update DHCP Interfaces 
+      sros_config:
+        lines:
+          - "server {{ future_dhcp_servers }}"
+        parents:
+          - configure
+          - service
+          - "vprn {{ vprn }}"
+          - "interface {{ item.id }}"
+          - dhcp
+        provider: "{{ cli }}"
+      with_items: "{{ interfaces }}"
