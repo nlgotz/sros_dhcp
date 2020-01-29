@@ -1,4 +1,22 @@
 ---
+- name: Create Folders and Files
+  connection: local
+  gather_facts: no
+  hosts: localhost
+  vars:
+    unmatched_interfaces_output: bad_interfaces.csv
+  tasks:
+    - name: FILE | Create Host Vars Directory
+      file:
+        path: host_vars
+        state: directory
+
+    - name: FILE | Create Unmatched Interface CSV
+      lineinfile:
+        path: "{{ unmatched_interfaces_output }}"
+        line: "hostname,interface,servers"
+        create: yes
+
 - name: Get DHCP Interfaces
   connection: local
   gather_facts: no
