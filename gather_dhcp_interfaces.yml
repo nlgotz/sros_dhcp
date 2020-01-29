@@ -1,6 +1,7 @@
 ---
 - name: Get DHCP Interfaces
   connection: local
+  gather_facts: no
   hosts: all
   vars:
     possible_dhcp_interfaces: []
